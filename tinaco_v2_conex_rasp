@@ -1,0 +1,102 @@
+#include <WiFi.h>
+#include <max6675.h>
+#include "config.h"
+bool estadoBomba = true; // Inicialmente apagada pero la prendi xd
+unsigned long lastSensorTime = 0; // Marca de tiempo para el ciclo de los sensores
+unsigned long sensorInterval = 10000; // Intervalo de 10 segundos
+int sensorIndex = 0; // Índice para alternar entre sensores
+const int totalSensors = 4; // Total de sensores en el case
+
+void setup() {
+  Serial.begin(115200);
+  Serial2.begin(115200, SERIAL_8N1, 16, 17); //UART Rasp
+}
+
+void loop() {
+
+  //Recibir de la Rasp
+  /*if (Serial2.available()) {
+    String mensaje = Serial2.readStringUntil('\n');
+    Serial.println("RASP: " + mensaje);
+    }*/
+
+  // Comprobamos si han pasado los 5 segundos
+  if (millis() - lastSensorTime >= sensorInterval) {
+    lastSensorTime = millis(); // Actualizamos el tiempo
+
+  // Alternamos al siguiente sensor
+  sensorIndex = (sensorIndex + 1) % totalSensors;
+
+  // Procesamos el sensor actual según el índice
+    switch (sensorIndex) {
+      case 0:
+        // --- TEMPERATURA ---
+          for (int i = 0; i < sizeof(temperatura) / sizeof(temperatura[0]); i++) {
+            float temp = temperatura[i].leerTemperatura();
+                Serial2.print("TEM"); Serial2.print(temperatura[i].numero); Serial2.print(":");
+                Serial2.println(temp);
+              }
+        break;
+      case 1:
+        // --- TURBIDEZ ---
+          for (int i = 0; i < sizeof(turbidez) / sizeof(turbidez[0]); i++) {
+            float turbi = turbidez[i].obtenerTurbi();
+              Serial2.print("TUR"); Serial2.print(turbidez[i].numero); Serial2.print(":");
+              Serial2.println(turbi);
+            }
+        break;
+      case 2:
+        // --- PH ---
+          for (int i = 0; i < sizeof(sensorPH) / sizeof(sensorPH[0]); i++) {
+            float pH = sensorPH[i].obtenerPH();
+              Serial2.print("SPH"); Serial2.print(sensorPH[i].numero); Serial2.print(":");
+              Serial2.println(pH);
+            }
+        break;
+      case 3:
+        // --- TDS ---
+          for (int i = 0; i < sizeof(tds) / sizeof(tds[0]); i++) {
+            float TDS = tds[i].obtenerTDS();
+              Serial2.print("TDS"); Serial2.print(tds[i].numero); Serial2.print(":");
+              Serial2.println(TDS);
+            }
+        break;
+    }
+  }
+
+  // después de cada sensor, el que sea, se checa el ultrasónico
+  // --- ULTRASONICO ---
+    for (int i = 0; i < sizeof(ultrasonico) / sizeof(ultrasonico[0]); i++) {
+      long distancia = ultrasonico[i].obtenerDistancia();
+      if (distancia == -1) continue; // Error al obtener distancia
+
+        Serial2.print("SON"); Serial2.print(ultrasonico[i].numero); Serial2.print(":");
+        Serial2.println(distancia);
+
+        if (distancia > 3 && estadoBomba) { //bomba en 1
+          bomba[i].kaboom(); // Encender la bomba
+        } else if (distancia <= 3 && estadoBomba){ //bomba en 0
+        //esto estaba como !estadoBomba creo que tiene que ver con el control desde el celular
+          bomba[i].nokaboom(); // Apagar la bomba
+        }
+      }
+    delay(5000);
+    //entonces es sensor(i), ultrasonico
+}
+
+void handleMessage(AdafruitIO_Data *data) {
+  Serial2.print("BOMBA:");
+  Serial2.println(data->value());
+
+  // Convertir el valor recibido en un booleano
+  String comando = data->value();
+  bool estadoBomba = (comando == "1");
+
+  if (estadoBomba) { //1
+      bomba[0].kaboom();
+      Serial2.println("BOMBA:ON");
+    } else {
+        bomba[0].nokaboom(); //0
+        Serial2.println("BOMBA:OFF");
+    }
+}
