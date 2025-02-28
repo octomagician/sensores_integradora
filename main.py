@@ -22,6 +22,8 @@ while True:
                 id_sensor = "TUR"
             elif line.startswith("SPH"):
                 id_sensor = "SPH"
+            elif line.startswith("BOM"):
+                id_sensor = "BOM"
             else:
                 continue
             valor = float(line.split(":")[1])
@@ -32,7 +34,7 @@ while True:
 
             sensor = Sensor(id_sensor, valor, timestamp)
             tinaco.create(sensor)
-            tinaco.to_json("Tinaco0")
+            tinaco.to_json("Tinacos")
             print("saved")    
     time.sleep(1)
 

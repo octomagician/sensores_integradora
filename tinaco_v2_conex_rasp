@@ -6,6 +6,7 @@ unsigned long lastSensorTime = 0; // Marca de tiempo para el ciclo de los sensor
 unsigned long sensorInterval = 10000; // Intervalo de 10 segundos
 int sensorIndex = 0; // Índice para alternar entre sensores
 const int totalSensors = 4; // Total de sensores en el case
+int tinaco_id = 1; // Número de tinaco_id que se puede cambiar si la Rasp se lo dice
 
 void setup() {
   Serial.begin(115200);
@@ -33,7 +34,7 @@ void loop() {
         // --- TEMPERATURA ---
           for (int i = 0; i < sizeof(temperatura) / sizeof(temperatura[0]); i++) {
             float temp = temperatura[i].leerTemperatura();
-                Serial2.print("TEM"); Serial2.print(temperatura[i].numero); Serial2.print(":");
+                Serial2.print(tinaco_id); Serial2.print("TEM"); Serial2.print(temperatura[i].numero); Serial2.print(":");
                 Serial2.println(temp);
               }
         break;
@@ -41,7 +42,7 @@ void loop() {
         // --- TURBIDEZ ---
           for (int i = 0; i < sizeof(turbidez) / sizeof(turbidez[0]); i++) {
             float turbi = turbidez[i].obtenerTurbi();
-              Serial2.print("TUR"); Serial2.print(turbidez[i].numero); Serial2.print(":");
+              Serial2.print(tinaco_id); Serial2.print("TUR"); Serial2.print(turbidez[i].numero); Serial2.print(":");
               Serial2.println(turbi);
             }
         break;
@@ -49,7 +50,7 @@ void loop() {
         // --- PH ---
           for (int i = 0; i < sizeof(sensorPH) / sizeof(sensorPH[0]); i++) {
             float pH = sensorPH[i].obtenerPH();
-              Serial2.print("SPH"); Serial2.print(sensorPH[i].numero); Serial2.print(":");
+              Serial2.print(tinaco_id); Serial2.print("SPH"); Serial2.print(sensorPH[i].numero); Serial2.print(":");
               Serial2.println(pH);
             }
         break;
@@ -57,7 +58,7 @@ void loop() {
         // --- TDS ---
           for (int i = 0; i < sizeof(tds) / sizeof(tds[0]); i++) {
             float TDS = tds[i].obtenerTDS();
-              Serial2.print("TDS"); Serial2.print(tds[i].numero); Serial2.print(":");
+              Serial2.print(tinaco_id); Serial2.print("TDS"); Serial2.print(tds[i].numero); Serial2.print(":");
               Serial2.println(TDS);
             }
         break;
@@ -70,7 +71,7 @@ void loop() {
       long distancia = ultrasonico[i].obtenerDistancia();
       if (distancia == -1) continue; // Error al obtener distancia
 
-        Serial2.print("SON"); Serial2.print(ultrasonico[i].numero); Serial2.print(":");
+        Serial2.print(tinaco_id); Serial2.print("SON"); Serial2.print(ultrasonico[i].numero); Serial2.print(":");
         Serial2.println(distancia);
 
         if (distancia > 3 && estadoBomba) { //bomba en 1
@@ -84,8 +85,9 @@ void loop() {
     //entonces es sensor(i), ultrasonico
 }
 
+//puede que falle proque cambió el protocolo, necesito checarlo después
 void handleMessage(AdafruitIO_Data *data) {
-  Serial2.print("BOMBA:");
+  Serial2.print(tinaco_id); Serial2.print("BOM"); Serial2.print(":");
   Serial2.println(data->value());
 
   // Convertir el valor recibido en un booleano
@@ -94,9 +96,11 @@ void handleMessage(AdafruitIO_Data *data) {
 
   if (estadoBomba) { //1
       bomba[0].kaboom();
-      Serial2.println("BOMBA:ON");
+      Serial2.print(tinaco_id); Serial2.print("BOM"); Serial2.print(":");
+      Serial2.println("ON");
     } else {
         bomba[0].nokaboom(); //0
-        Serial2.println("BOMBA:OFF");
+        Serial2.print(tinaco_id); Serial2.print("BOM"); Serial2.print(":");
+        Serial2.println("OFF");
     }
 }
