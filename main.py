@@ -15,26 +15,26 @@ while True:
             print(line)
             
             if line.startswith("TDS"):
-                id_sensor = "TDS"
+                sensor_id = "TDS"
             elif line.startswith("TEM"):
-                id_sensor = "TEM"
+                sensor_id = "TEM"
             elif line.startswith("TUR"):
-                id_sensor = "TUR"
+                sensor_id = "TUR"
             elif line.startswith("SPH"):
-                id_sensor = "SPH"
+                sensor_id = "SPH"
             elif line.startswith("BOM"):
-                id_sensor = "BOM"
+                sensor_id = "BOM"
             else:
                 continue
+            tinaco_id = int(line.split("-")[1].split("+")[0])
             valor = float(line.split(":")[1])
             now = time.localtime()
             timestamp = "{:04d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(
                 now[0], now[1], now[2], now[3], now[4], now[5]
             )
 
-            sensor = Sensor(id_sensor, valor, timestamp)
+            sensor = Sensor(sensor_id, tinaco_id, valor, timestamp)
             tinaco.create(sensor)
             tinaco.to_json("Tinacos")
             print("saved")    
     time.sleep(1)
-
