@@ -1,94 +1,126 @@
 #include <WiFi.h>
 #include <max6675.h>
 #include "config.h"
-bool estadoBomba = true; // Inicialmente apagada pero la prendi xd
-unsigned long lastSensorTime = 0; // Marca de tiempo para el ciclo de los sensores
-unsigned long sensorInterval = 10000; // Intervalo de 10 segundos
-int sensorIndex = 0; // Índice para alternar entre sensores
-const int totalSensors = 4; // Total de sensores en el case
-int tinaco_id = 1; // Número de tinaco_id que se puede cambiar si la Rasp se lo dice
+
+bool estadoBomba = true;
+unsigned long lastSensorTime = 0;
+unsigned long sensorInterval = 5000;
+const int sensorSequence[] = {1,2,1,3,1,4,1,5};
+int sequenceIndex = 0;
+const int sequenceLength = sizeof(sensorSequence) / sizeof(sensorSequence[0]);
+int tinaco_id = 1;
 
 void setup() {
   Serial.begin(115200);
-  Serial2.begin(115200, SERIAL_8N1, 16, 17); //UART Rasp
+  Serial2.begin(115200, SERIAL_8N1, 16, 17);
 }
 
 void loop() {
+  unsigned long currentMillis = millis();
+  
+  // Control principal de sensores
+  if (currentMillis - lastSensorTime >= sensorInterval) {
+    lastSensorTime = currentMillis;
+    
+    int currentSensor = sensorSequence[sequenceIndex];
+    sequenceIndex = (sequenceIndex + 1) % sequenceLength;
 
-  //Recibir de la Rasp
-  /*if (Serial2.available()) {
-    String mensaje = Serial2.readStringUntil('\n');
-    Serial.println("RASP: " + mensaje);
-    }*/
-
-  // Comprobamos si han pasado los 5 segundos
-  if (millis() - lastSensorTime >= sensorInterval) {
-    lastSensorTime = millis(); // Actualizamos el tiempo
-
-  // Alternamos al siguiente sensor
-  sensorIndex = (sensorIndex + 1) % totalSensors;
-
-  // Procesamos el sensor actual según el índice
-    switch (sensorIndex) {
-      case 0:
-        // --- TEMPERATURA ---
-          for (int i = 0; i < sizeof(temperatura) / sizeof(temperatura[0]); i++) {
-            float temp = temperatura[i].leerTemperatura();
-                Serial2.print("2"); Serial2.print("-"); Serial2.print(tinaco_id); Serial2.print("+"); Serial2.print(temperatura[i].numero); Serial2.print(":");
-                Serial2.println(temp);
-              }
+    switch (currentSensor) {
+      case 1: 
+        checkUltrasonic();
         break;
-      case 1:
-        // --- TURBIDEZ ---
-          for (int i = 0; i < sizeof(turbidez) / sizeof(turbidez[0]); i++) {
-            float turbi = turbidez[i].obtenerTurbi();
-              Serial2.print("4"); Serial2.print("-"); Serial2.print(tinaco_id); Serial2.print("+");  Serial2.print(turbidez[i].numero); Serial2.print(":");
-              Serial2.println(turbi);
-            }
+      case 2: 
+        checkTemperature();
         break;
-      case 2:
-        // --- PH ---
-          for (int i = 0; i < sizeof(sensorPH) / sizeof(sensorPH[0]); i++) {
-            float pH = sensorPH[i].obtenerPH();
-              Serial2.print("3"); Serial2.print("-"); Serial2.print(tinaco_id); Serial2.print("+");  Serial2.print(sensorPH[i].numero); Serial2.print(":");
-              Serial2.println(pH);
-            }
+      case 3: 
+        checkPH();
         break;
-      case 3:
-        // --- TDS ---
-          for (int i = 0; i < sizeof(tds) / sizeof(tds[0]); i++) {
-            float TDS = tds[i].obtenerTDS();
-              Serial2.print("5"); Serial2.print("-"); Serial2.print(tinaco_id); Serial2.print("+");  Serial2.print(tds[i].numero); Serial2.print(":");
-              Serial2.println(TDS);
-            }
+      case 4: 
+        checkTUR();
+        break;
+      case 5: 
+        checkTDS();
         break;
     }
   }
-
-  // después de cada sensor, el que sea, se checa el ultrasónico
-  // --- ULTRASONICO ---
-    for (int i = 0; i < sizeof(ultrasonico) / sizeof(ultrasonico[0]); i++) {
-      long distancia = ultrasonico[i].obtenerDistancia();
-      if (distancia == -1) continue; // Error al obtener distancia
-
-        Serial2.print("1"); Serial2.print("-"); Serial2.print(tinaco_id); Serial2.print("+");  Serial2.print(ultrasonico[i].numero); Serial2.print(":");
-        Serial2.println(distancia);
-
-        if (distancia > 3 && estadoBomba) { //bomba en 1
-          bomba[i].kaboom(); // Encender la bomba
-        } else if (distancia <= 3 && estadoBomba){ //bomba en 0
-        //esto estaba como !estadoBomba creo que tiene que ver con el control desde el celular
-          bomba[i].nokaboom(); // Apagar la bomba
-        }
-      }
-    delay(5000);
-    //entonces es sensor(i), ultrasonico
 }
 
-//puede que falle proque cambió el protocolo, necesito checarlo después
+void checkUltrasonic() {
+  for (int i = 0; i < sizeof(ultrasonico) / sizeof(ultrasonico[0]); i++) {
+  long distancia = ultrasonico[i].obtenerDistancia();
+  if (distancia == -1) continue;
+
+  Serial2.print("1-"); Serial2.print(tinaco_id); Serial2.print("+"); 
+  Serial2.print(ultrasonico[i].numero); Serial2.print(":");
+  Serial2.println(distancia);
+
+  Serial.print("1-"); Serial.print(tinaco_id); Serial.print("+"); 
+  Serial.print(ultrasonico[i].numero); Serial.print(":");
+  Serial.println(distancia);
+  
+  // Control de la bomba
+  if (distancia > 14 && estadoBomba) {
+    bomba[i].kaboom(); // Encender
+  } else if (distancia <= 14 && estadoBomba) {
+    bomba[i].nokaboom(); // Apagar
+  }
+  }
+}
+
+// Funciones para los otros sensores (similar a tu código original)
+void checkTemperature() {
+  for (int i = 0; i < sizeof(temperatura) / sizeof(temperatura[0]); i++) {
+    float temp = temperatura[i].leerTemperatura();
+    Serial2.print("2-"); Serial2.print(tinaco_id); Serial2.print("+");
+    Serial2.print(temperatura[i].numero); Serial2.print(":");
+    Serial2.println(temp);
+    Serial.print("2-"); Serial.print(tinaco_id); Serial.print("+");
+    Serial.print(temperatura[i].numero); Serial.print(":");
+    Serial.println(temp);
+  }
+}
+
+void checkPH() {
+  for (int i = 0; i < sizeof(sensorPH) / sizeof(sensorPH[0]); i++) {
+    float pH = sensorPH[i].obtenerPH();
+    Serial2.print("3-"); Serial2.print(tinaco_id); Serial2.print("+");
+    Serial2.print(sensorPH[i].numero); Serial2.print(":");
+    Serial2.println(pH);
+    Serial.print("3-"); Serial.print(tinaco_id); Serial.print("+");
+    Serial.print(sensorPH[i].numero); Serial.print(":");
+    Serial.println(pH);
+  }
+}
+
+void checkTUR() {
+  for (int i = 0; i < sizeof(turbidez) / sizeof(turbidez[0]); i++) {
+    float turbi = turbidez[i].obtenerTurbi();
+    Serial2.print("4-"); Serial2.print(tinaco_id); Serial2.print("+");
+    Serial2.print(turbidez[i].numero); Serial2.print(":");
+    Serial2.println(turbi);
+    Serial.print("4-"); Serial.print(tinaco_id); Serial.print("+");
+    Serial.print(turbidez[i].numero); Serial.print(":");
+    Serial.println(turbi);
+  }
+}
+
+void checkTDS() {
+  for (int i = 0; i < sizeof(tds) / sizeof(tds[0]); i++) {
+    float TDS = tds[i].obtenerTDS();
+    Serial2.print("5-"); Serial2.print(tinaco_id); Serial2.print("+");
+    Serial2.print(tds[i].numero); Serial2.print(":");
+    Serial2.println(TDS);
+    Serial.print("5-"); Serial.print(tinaco_id); Serial.print("+");
+    Serial.print(tds[i].numero); Serial.print(":");
+    Serial.println(TDS);
+  }
+}
+
 void handleMessage(AdafruitIO_Data *data) {
   Serial2.print("BOM"); Serial2.print("-"); Serial2.print(tinaco_id); Serial2.print("+");  Serial2.print(":");
   Serial2.println(data->value());
+  Serial.print("BOM"); Serial.print("-"); Serial.print(tinaco_id); Serial.print("+");  Serial.print(":");
+  Serial.println(data->value());
 
   // Convertir el valor recibido en un booleano
   String comando = data->value();
@@ -98,9 +130,13 @@ void handleMessage(AdafruitIO_Data *data) {
       bomba[0].kaboom();
       Serial2.print("BOM"); Serial2.print("-"); Serial2.print(tinaco_id); Serial2.print("+");  Serial2.print(":");
       Serial2.println("ON");
+      Serial.print("BOM"); Serial.print("-"); Serial.print(tinaco_id); Serial.print("+");  Serial.print(":");
+      Serial.println("ON");
     } else {
         bomba[0].nokaboom(); //0
         Serial2.print("BOM"); Serial2.print("-"); Serial2.print(tinaco_id); Serial2.print("+");  Serial2.print(":");
         Serial2.println("OFF");
+        Serial.print("BOM"); Serial.print("-"); Serial.print(tinaco_id); Serial.print("+");  Serial.print(":");
+        Serial.println("OFF");
     }
 }
